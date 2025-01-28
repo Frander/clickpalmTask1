@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tarea #1</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container-fluid">
+        <h1 class="my-4">Productos</h1>
+
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <h4>Agregar Nuevo Producto</h4>
+                <form id="addForm" class="needs-validation" onsubmit="addNewItem(event)" novalidate>
+                    <div class="row g-3">
+                        <div class="col-md-2">
+                            <input type="text" class="form-control" id="rfid" placeholder="RFID" required>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="number" class="form-control" id="id_headquarter" placeholder="Headquarter"
+                                required>
+                        </div>
+                        <div class="col-md-1">
+                            <select class="form-select" id="state" required>
+                                <option value="A">A</option>
+                                <option value="WARNING">WARNING</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="number" class="form-control" id="line" placeholder="Línea" required>
+                        </div>
+                        <div class="col-md-1">
+                            <input type="number" class="form-control" id="palm" placeholder="Palma" required>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="number" step="any" class="form-control" id="latitude" placeholder="Latitud"
+                                required>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="number" step="any" class="form-control" id="longitude" placeholder="Longitud"
+                                required>
+                        </div>
+                        <div class="col-md-12 mt-2">
+                            <button type="submit" class="btn btn-success">Agregar Producto</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="row">
+            <hr>
+        </div>
+
+        <!-- Filtros -->
+        <div class="row mb-4">
+            <div class="col-md-2">
+                <input type="text" id="typeSearch" class="form-control" placeholder="Type Search">
+            </div>
+            <div class="col-md-2">
+                <input type="text" id="textSearch1" class="form-control" placeholder="Text Search 1">
+            </div>
+            <div class="col-md-2">
+                <input type="text" id="textSearch2" class="form-control" placeholder="Text Search 2">
+            </div>
+            <div class="col-md-2">
+                <input type="number" id="Id_company" class="form-control" placeholder="Id Company">
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-primary w-100" onclick="loadData()">Cargar Datos</button>
+            </div>
+        </div>
+
+        <div class="row">
+            <hr>
+        </div>
+
+
+
+        <div class="table-responsive mb-5">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID Producto</th>
+                        <th>Sede</th>
+                        <th>RFID</th>
+                        <th>Estado</th>
+                        <th>Ubicación</th>
+                        <th>Línea</th>
+                        <th>Palma</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="grid-container">
+            <div class="chart-container">
+                <canvas id="locationChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let locationChartInstance = null;
+        let allData = [];
+
+        async function loadData() {
+            const typeSearch = document.getElementById('typeSearch').value;
+            const textSearch1 = document.getElementById('textSearch1').value;
+            const textSearch2 = document.getElementById('textSearch2').value;
+            const idCompany = document.getElementById('Id_company').value;;
+
+            try {
+                const response = await fetch(
+                    `https://api.clickpalm.com/Products/filters?Type_search=${typeSearch}&Text_search1=${textSearch1}&Text_search2=${textSearch2}&Id_company=${idCompany}`
+                );
+
+                const data = await response.json();
+                allData = data;
+                populateTable(allData);
+                updateCharts(allData);
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // Validación en tiempo real 
+        document.querySelectorAll('#addForm input, #addForm select').forEach(input => {
+            input.addEventListener('input', function () {
+                if (this.checkValidity()) {
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                } else {
+                    this.classList.remove('is-valid');
+                    this.classList.add('is-invalid');
+                }
+            });
+        });
+
+        function addNewItem(event) {
+            event.preventDefault();
+
+            const newItem = {
+                id_product: Date.now(),
+                id_headquarter: document.getElementById('id_headquarter').value,
+                rfid: document.getElementById('rfid').value,
+                state_product: document.getElementById('state').value,
+                description_product: `Latitude:${document.getElementById('latitude').value}|Longitud:${document.getElementById('longitude').value}`,
+                location_raw: `LAT:${document.getElementById('latitude').value};LON:${document.getElementById('longitude').value};ALT:0.0;ERH:0.0`,
+                line: parseInt(document.getElementById('line').value),
+                palm: parseInt(document.getElementById('palm').value)
+            };
+
+            allData.push(newItem);
+            populateTable(allData);
+            updateCharts(allData);
+
+            document.getElementById('addForm').reset();
+        }
+
+        function populateTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            data.forEach(item => {
+                const location = item.description_product.split('|').map(coord => coord.trim()).join(', ');
+
+                const row = `
+                    <tr>
+                        <td>${item.id_product}</td>
+                        <td>${item.id_headquarter}</td>
+                        <td>${item.rfid}</td>
+                        <td>${item.state_product}</td>
+                        <td>${location}</td>
+                        <td>${item.line}</td>
+                        <td>${item.palm}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        function updateCharts(data) {
+            if (locationChartInstance) locationChartInstance.destroy();
+
+            const locationCtx = document.getElementById('locationChart').getContext('2d');
+            locationChartInstance = new Chart(locationCtx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(item => `Línea ${item.line}`),
+                    datasets: [{
+                        label: 'Número de Palmas',
+                        data: data.map(item => item.palm),
+                        backgroundColor: '#2196F3'
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        window.onload = loadData;
+    </script>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
